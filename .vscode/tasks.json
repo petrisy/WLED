@@ -37,6 +37,40 @@
       "presentation": {
         "panel": "shared"
       }
+    },
+    {
+      "label": "Flash: ESP32-C5 N4R2",
+      "type": "shell",
+      "command": "${workspaceFolder}/tools/flash-built-bin.sh",
+      "args": [
+        "esp32c5dev_N4R2",
+        "${input:serialPort}"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Flash: ESP32-P4 16MB",
+      "type": "shell",
+      "command": "${workspaceFolder}/tools/flash-built-bin.sh",
+      "args": [
+        "esp32p4_16MB",
+        "${input:serialPort}"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "serialPort",
+      "type": "promptString",
+      "description": "Serial port, for example /dev/ttyACM0 or /dev/ttyUSB0",
+      "default": "/dev/ttyACM0"
     }
   ]
 }

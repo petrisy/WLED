@@ -100,15 +100,17 @@ bool PinManager::allocateMultiplePins(const managed_pin_type * mptArray, byte ar
       // as this can greatly simplify configuration arrays
       continue;
     }
-    // allow any GPIO for Ethernet (compile time assigned)
-    if (!(isPinOk(gpio, mptArray[i].isOutput) || tag==PinOwner::Ethernet)) {
+    const bool pinOk = isPinOk(gpio, mptArray[i].isOutput);
+    const bool ethernetReservedPin = (tag == PinOwner::Ethernet && gpio < WLED_NUM_PINS && !pinOk);
+    // allow reserved GPIOs for Ethernet (compile time assigned)
+    if (!(pinOk || ethernetReservedPin)) {
       DEBUG_PRINTF_P(PSTR("PIN ALLOC: FAIL Invalid pin attempted to be allocated: GPIO %d as %s\n."), gpio, mptArray[i].isOutput ? PSTR("output"): PSTR("input"));
       shouldFail = true;
     }
     if ((tag==PinOwner::HW_I2C || tag==PinOwner::HW_SPI) && isPinAllocated(gpio, tag)) {
       // allow multiple "allocations" of HW I2C & SPI bus pins
       continue;
-    } else if (isPinAllocated(gpio)) {
+    } else if (ethernetReservedPin ? ownerTag[gpio] != PinOwner::None : isPinAllocated(gpio)) {
       DEBUG_PRINTF_P(PSTR("PIN ALLOC: FAIL GPIO %d already allocated by 0x%02X.\n"), gpio, static_cast<int>(ownerTag[gpio]));
       shouldFail = true;
     }

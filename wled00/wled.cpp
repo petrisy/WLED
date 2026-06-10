@@ -448,7 +448,7 @@ void WLED::setup()
   }
 #endif
 
-#if defined(ARDUINO_ARCH_ESP32)
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_ETHERNET_ONLY)
   DEBUG_PRINTF_P(PSTR("TX power: %d/%d\n"), WiFi.getTxPower(), txPower);
 #endif
 
@@ -482,6 +482,15 @@ void WLED::setup()
   updateFSInfo();
 
   // generate module IDs must be done before AP setup
+#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_ETHERNET_ONLY)
+  {
+    uint8_t mac[6] = {0};
+    esp_read_mac(mac, ESP_MAC_ETH);
+    char buf[13];
+    sprintf(buf, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    escapedMac = buf;
+  }
+#else
   escapedMac = WiFi.macAddress();
   escapedMac.replace(":", "");
   escapedMac.toLowerCase();
@@ -501,9 +510,14 @@ void WLED::setup()
     escapedMac = buf;
   }
 #endif
+#endif
 
   WLED_SET_AP_SSID(); // otherwise it is empty on first boot until config is saved
   multiWiFi.push_back(WiFiConfig(CLIENT_SSID,CLIENT_PASS)); // initialise vector with default WiFi
+
+#if defined(WLED_ETHERNET_ONLY) && defined(WLED_USE_ETHERNET)
+  WiFi.onEvent(WiFiEvent);
+#endif
 
   if(!verifyConfig()) {
     if(!restoreConfig()) {
@@ -536,6 +550,7 @@ void WLED::setup()
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
 
+#ifndef WLED_ETHERNET_ONLY
   #ifndef ESP8266
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
   WiFi.persistent(true); // storing credentials in NVM fixes boot-up pause as connection is much faster, is disabled after first connection
@@ -546,7 +561,11 @@ void WLED::setup()
   #else
   WiFi.persistent(false); // on ESP8266 using NVM for wifi config has no benefit of faster connection
   #endif
+#endif
+#ifndef WLED_ETHERNET_ONLY
   WiFi.onEvent(WiFiEvent);
+#endif
+#ifndef WLED_ETHERNET_ONLY
   WiFi.mode(WIFI_STA); // enable scanning
 
 #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
@@ -557,6 +576,7 @@ void WLED::setup()
 #endif
 
   findWiFi(true);      // start scanning for available WiFi-s
+#endif
 
   // all GPIOs are allocated at this point
   serialCanRX = !PinManager::isPinAllocated(hardwareRX); // Serial RX pin (GPIO 3 on ESP32 and ESP8266)
@@ -679,6 +699,10 @@ void WLED::beginStrip()
 
 void WLED::initAP(bool resetAP)
 {
+#ifdef WLED_ETHERNET_ONLY
+  return;
+#endif
+
   if (apBehavior == AP_BEHAVIOR_BUTTON_ONLY && !resetAP)
     return;
 
@@ -732,6 +756,12 @@ void WLED::initConnection()
   #ifdef WLED_ENABLE_WEBSOCKETS
   ws.onEvent(wsEvent);
   #endif
+
+#if defined(WLED_ETHERNET_ONLY) && defined(WLED_USE_ETHERNET)
+  initEthernet();
+  lastReconnectAttempt = millis();
+  return;
+#endif
 
 #ifndef WLED_DISABLE_ESPNOW
   if (statusESPNow == ESP_NOW_STATE_ON) {
@@ -937,6 +967,34 @@ void WLED::handleConnection()
   #ifdef WLED_DEBUG
   const unsigned long nowS = now/1000;
   #endif
+
+#if defined(WLED_ETHERNET_ONLY) && defined(WLED_USE_ETHERNET)
+  if (lastReconnectAttempt == 0 || forceReconnect) {
+    DEBUG_PRINTF_P(PSTR("Ethernet-only connect or forced reconnect (@ %lus).\n"), nowS);
+    initEthernet();
+    lastReconnectAttempt = now;
+    forceReconnect = false;
+  }
+
+  if (WLEDNetwork.isConnected()) {
+    if (!interfacesInited) {
+      DEBUG_PRINTLN();
+      DEBUG_PRINT(F("Connected! IP address: "));
+      DEBUG_PRINTLN(WLEDNetwork.localIP());
+      initInterfaces();
+      userConnected();
+      UsermodManager::connected();
+      lastMqttReconnectAttempt = 0;
+    }
+    wasConnected = true;
+  } else if (interfacesInited || wasConnected) {
+    DEBUG_PRINTLN(F("Ethernet disconnected!"));
+    interfacesInited = false;
+    wasConnected = false;
+  }
+  return;
+#endif
+
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
   // ignore connection handling if WiFi is configured and scan still running
@@ -1034,7 +1092,7 @@ void WLED::handleConnection()
     #endif
     DEBUG_PRINTLN();
 
-  #if defined(CONFIG_IDF_TARGET_ESP32P4)
+  #if defined(CONFIG_IDF_TARGET_ESP32P4) && !defined(WLED_ETHERNET_ONLY)
     // directly after connection, attempt to update the ESP-Hosted Wi-Fi co-processor firmware
     if (!apActive && !improvActive) {
       // This function will:

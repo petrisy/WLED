@@ -394,7 +394,11 @@ WLED_GLOBAL bool noWifiSleep _INIT(false);
 WLED_GLOBAL bool force802_3g _INIT(false);
 #endif // WLED_SAVE_RAM
 #ifdef SOC_WIFI_SUPPORT_5G
+#if defined(CONFIG_IDF_TARGET_ESP32C5)
+WLED_GLOBAL byte wifiBandMode _INIT((byte)WIFI_BAND_MODE_2G_ONLY); // C5 5GHz/auto is still experimental; prefer the common WLED 2.4GHz path by default
+#else
 WLED_GLOBAL byte wifiBandMode _INIT((byte)WIFI_BAND_MODE_AUTO);  // default for dual-band chips (1=2.4G, 2=5G, 3=Auto)
+#endif
 #endif
 #if defined(ARDUINO_ARCH_ESP32)
   #if defined(LOLIN_WIFI_FIX) // extend this fix to all esp32 boards

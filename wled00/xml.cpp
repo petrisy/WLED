@@ -138,18 +138,8 @@ static void appendGPIOinfo(Print& settingsScript)
     if (ethernetBoards[ethernetType].eth_power >= 0)    { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_power); }
     if (ethernetBoards[ethernetType].eth_mdc >= 0)      { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_mdc); }
     if (ethernetBoards[ethernetType].eth_mdio >= 0)     { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_mdio); }
-    switch (ethernetBoards[ethernetType].eth_clk_mode)  {
-      case ETH_CLOCK_GPIO0_IN:
-      case ETH_CLOCK_GPIO0_OUT:
-        settingsScript.print(0);
-        break;
-      case ETH_CLOCK_GPIO16_OUT:
-        settingsScript.print(16);
-        break;
-      case ETH_CLOCK_GPIO17_OUT:
-        settingsScript.print(17);
-        break;
-    }
+    managed_pin_type clockPin = ethernetClockPin(ethernetBoards[ethernetType]);
+    if (clockPin.pin >= 0) settingsScript.print(clockPin.pin);
   }
   #endif
   settingsScript.print(F("];")); // rsvd
