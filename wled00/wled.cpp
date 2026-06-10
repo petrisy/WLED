@@ -448,7 +448,11 @@ void WLED::setup()
   }
 #endif
 
+<<<<<<< HEAD
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_ETHERNET_ONLY_BUILD)
+=======
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_ETHERNET_ONLY)
+>>>>>>> c0804b5a (add helper scripts)
   DEBUG_PRINTF_P(PSTR("TX power: %d/%d\n"), WiFi.getTxPower(), txPower);
 #endif
 
@@ -482,7 +486,11 @@ void WLED::setup()
   updateFSInfo();
 
   // generate module IDs must be done before AP setup
+<<<<<<< HEAD
+#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_ETHERNET_ONLY_BUILD)
+=======
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_ETHERNET_ONLY)
+>>>>>>> c0804b5a (add helper scripts)
   {
     uint8_t mac[6] = {0};
     esp_read_mac(mac, ESP_MAC_ETH);
@@ -515,7 +523,11 @@ void WLED::setup()
   WLED_SET_AP_SSID(); // otherwise it is empty on first boot until config is saved
   multiWiFi.push_back(WiFiConfig(CLIENT_SSID,CLIENT_PASS)); // initialise vector with default WiFi
 
+<<<<<<< HEAD
+#ifdef WLED_ETHERNET_ONLY_BUILD
+=======
 #if defined(WLED_ETHERNET_ONLY) && defined(WLED_USE_ETHERNET)
+>>>>>>> c0804b5a (add helper scripts)
   WiFi.onEvent(WiFiEvent);
 #endif
 
@@ -547,10 +559,9 @@ void WLED::setup()
 
   if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
-  #ifndef WLED_ETHERNET_ONLY
+#ifndef WLED_ETHERNET_ONLY_BUILD
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
-  #endif
 
 #ifndef WLED_ETHERNET_ONLY
   #ifndef ESP8266
@@ -563,8 +574,12 @@ void WLED::setup()
   #else
   WiFi.persistent(false); // on ESP8266 using NVM for wifi config has no benefit of faster connection
   #endif
+<<<<<<< HEAD
+
+=======
 #endif
 #ifndef WLED_ETHERNET_ONLY
+>>>>>>> c0804b5a (add helper scripts)
   WiFi.onEvent(WiFiEvent);
 #endif
 #ifndef WLED_ETHERNET_ONLY
@@ -701,7 +716,11 @@ void WLED::beginStrip()
 
 void WLED::initAP(bool resetAP)
 {
+<<<<<<< HEAD
+#ifdef WLED_ETHERNET_ONLY_BUILD
+=======
 #ifdef WLED_ETHERNET_ONLY
+>>>>>>> c0804b5a (add helper scripts)
   return;
 #endif
 
@@ -759,7 +778,11 @@ void WLED::initConnection()
   ws.onEvent(wsEvent);
   #endif
 
+<<<<<<< HEAD
+#ifdef WLED_ETHERNET_ONLY_BUILD
+=======
 #if defined(WLED_ETHERNET_ONLY) && defined(WLED_USE_ETHERNET)
+>>>>>>> c0804b5a (add helper scripts)
   initEthernet();
   lastReconnectAttempt = millis();
   return;
@@ -970,7 +993,11 @@ void WLED::handleConnection()
   const unsigned long nowS = now/1000;
   #endif
 
+<<<<<<< HEAD
+#ifdef WLED_ETHERNET_ONLY_BUILD
+=======
 #if defined(WLED_ETHERNET_ONLY) && defined(WLED_USE_ETHERNET)
+>>>>>>> c0804b5a (add helper scripts)
   if (lastReconnectAttempt == 0 || forceReconnect) {
     DEBUG_PRINTF_P(PSTR("Ethernet-only connect or forced reconnect (@ %lus).\n"), nowS);
     initEthernet();
@@ -1094,7 +1121,11 @@ void WLED::handleConnection()
     #endif
     DEBUG_PRINTLN();
 
+<<<<<<< HEAD
+  #if defined(CONFIG_IDF_TARGET_ESP32P4) && !defined(WLED_ETHERNET_ONLY_BUILD)
+=======
   #if defined(CONFIG_IDF_TARGET_ESP32P4) && !defined(WLED_ETHERNET_ONLY)
+>>>>>>> c0804b5a (add helper scripts)
     // directly after connection, attempt to update the ESP-Hosted Wi-Fi co-processor firmware
     if (!apActive && !improvActive) {
       // This function will:

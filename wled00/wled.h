@@ -409,6 +409,10 @@ WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);  // ToDO: change to int8_
 #endif
 #define WLED_WIFI_CONFIGURED isWiFiConfigured()
 
+#if defined(WLED_USE_ETHERNET) && defined(WLED_ETHERNET_ONLY)
+  #define WLED_ETHERNET_ONLY_BUILD
+#endif
+
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   #ifdef WLED_ETH_DEFAULT                                          // default ethernet board type if specified
     WLED_GLOBAL int ethernetType _INIT(WLED_ETH_DEFAULT);          // ethernet board type
