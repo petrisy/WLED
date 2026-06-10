@@ -547,8 +547,10 @@ void WLED::setup()
 
   if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
+  #ifndef WLED_ETHERNET_ONLY
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
+  #endif
 
 #ifndef WLED_ETHERNET_ONLY
   #ifndef ESP8266
