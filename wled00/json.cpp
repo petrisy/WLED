@@ -773,7 +773,7 @@ void serializeInfo(JsonObject root)
 
   root[F("lip")] = realtimeIP[0] == 0 ? "" : realtimeIP.toString();
 
-  #ifdef WLED_ENABLE_WEBSOCKETS
+  #if defined(WLED_ENABLE_WEBSOCKETS) && !defined(WLED_ETHERNET_ONLY_BUILD)
   root[F("ws")] = ws.count();
   #else
   root[F("ws")] = -1;

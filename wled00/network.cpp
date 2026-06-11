@@ -489,11 +489,7 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_ETH_CONNECTED:
       {
       DEBUG_PRINTLN(F("ETH-E: Connected"));
-<<<<<<< HEAD
 #ifndef WLED_ETHERNET_ONLY_BUILD
-=======
-#ifndef WLED_ETHERNET_ONLY
->>>>>>> c0804b5a (add helper scripts)
       if (!apActive) {
         WiFi.disconnect(true); // disable WiFi entirely
       }
@@ -515,11 +511,7 @@ void WiFiEvent(WiFiEvent_t event)
       // may be necessary to reconnect the WiFi when
       // ethernet disconnects, as a way to provide
       // alternative access to the device.
-<<<<<<< HEAD
 #ifndef WLED_ETHERNET_ONLY_BUILD
-=======
-#ifndef WLED_ETHERNET_ONLY
->>>>>>> c0804b5a (add helper scripts)
       if (interfacesInited && WiFi.scanComplete() >= 0) findWiFi(true); // reinit WiFi scan
       forceReconnect = true;
 #else

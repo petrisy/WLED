@@ -133,11 +133,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #ifdef WLED_USE_ETHERNET
   JsonObject ethernet = doc[F("eth")];
   CJSON(ethernetType, ethernet["type"]);
-<<<<<<< HEAD
   #if defined(WLED_ETHERNET_ONLY_BUILD) && defined(WLED_ETH_DEFAULT)
-=======
-  #if defined(WLED_ETHERNET_ONLY) && defined(WLED_ETH_DEFAULT)
->>>>>>> c0804b5a (add helper scripts)
   if (ethernetType == WLED_ETH_NONE) ethernetType = WLED_ETH_DEFAULT;
   #endif
   // NOTE: Ethernet configuration takes priority over other use of pins

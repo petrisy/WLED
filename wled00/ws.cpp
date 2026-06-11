@@ -66,17 +66,15 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
         }
         releaseJSONBufferLock();
 
-        if (!interfaceUpdateCallMode) { // individual client response only needed if no WS broadcast soon
-          if (verboseResponse) {
-            #ifndef WLED_DISABLE_MQTT
-            // publish state to MQTT as requested in wled#4643 even if only WS response selected
-            publishMqtt();
-            #endif
-            sendDataWs(client);
-          } else {
-            // we have to send something back otherwise WS connection closes
-            client->text(F("{\"success\":true}"));
-          }
+        if (verboseResponse) {
+          #ifndef WLED_DISABLE_MQTT
+          // publish state to MQTT as requested in wled#4643 even if only WS response selected
+          publishMqtt();
+          #endif
+          sendDataWs(client);
+        } else if (!interfaceUpdateCallMode) { // individual client response only needed if no WS broadcast soon
+          // we have to send something back otherwise WS connection closes
+          client->text(F("{\"success\":true}"));
           // force broadcast in 500ms after updating client
           //lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500); // ESP8266 does not like this
         }
@@ -138,7 +136,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
 
 void sendDataWs(AsyncWebSocketClient * client)
 {
-  if (!ws.count()) return;
+  if (!client && !ws.count()) return;
 
   if (!requestJSONBufferLock(JSON_LOCK_WS_SEND)) {
     const char* error = PSTR("{\"error\":3}");
