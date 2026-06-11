@@ -38,7 +38,7 @@ All parameters are runtime configurable. Some may require a hard reset after cha
 
 If you want to define default GPIOs during compile time, use the following (default values in parentheses):
 
-* `-D SR_DMTYPE=x` : defines digital microphone type: 0=analog, 1=generic I2S (default), 2=ES7243 I2S, 3=SPH0645 I2S, 4=generic I2S with master clock, 5=PDM I2S
+* `-D SR_DMTYPE=x` : defines digital microphone type: 0=analog, 1=generic I2S (default), 2=ES7243 I2S, 3=SPH0645 I2S, 4=generic I2S with master clock, 5=PDM I2S, 6=ES8388 I2S, 7=ES8311 I2S
 * `-D AUDIOPIN=x`  : GPIO for analog microphone/AUX-in (36)
 * `-D I2S_SDPIN=x` : GPIO for SD pin on digital microphone (32)
 * `-D I2S_WSPIN=x` : GPIO for WS pin on digital microphone (15)

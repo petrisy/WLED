@@ -565,6 +565,126 @@ class ES8388Source : public I2SSource {
 
 };
 
+/* ES8311 codec input
+   Used on ESP32-P4 boards such as Waveshare ESP32-P4-ETH. The codec needs
+   I2C setup before its ADC outputs samples on I2S. */
+class ES8311Source : public I2SSource {
+  private:
+    static constexpr uint8_t ES8311_ADDR = 0x18; // 7-bit I2C address, ADF uses 0x30 write address
+    static constexpr int8_t ES8311_SDA_PIN = 7;
+    static constexpr int8_t ES8311_SCL_PIN = 8;
+    int8_t _sdaPin = I2S_PIN_NO_CHANGE;
+    int8_t _sclPin = I2S_PIN_NO_CHANGE;
+    bool _i2cPinsAllocated = false;
+
+    bool _es8311I2cWrite(uint8_t reg, uint8_t val) {
+      Wire.beginTransmission(ES8311_ADDR);
+      Wire.write(reg);
+      Wire.write(val);
+      uint8_t i2cErr = Wire.endTransmission();
+      if (i2cErr != 0) {
+        DEBUGSR_PRINTF("AR: ES8311 I2C write failed with error=%d (addr=0x%X, reg=0x%X, val=0x%X).\n", i2cErr, ES8311_ADDR, reg, val);
+        return false;
+      }
+      return true;
+    }
+
+    bool _setupI2C() {
+      _sdaPin = i2c_sda >= 0 ? i2c_sda : ES8311_SDA_PIN;
+      _sclPin = i2c_scl >= 0 ? i2c_scl : ES8311_SCL_PIN;
+
+      if (i2c_sda < 0 || i2c_scl < 0) {
+        PinManagerPinType i2cPins[2] = { {_sdaPin, true}, {_sclPin, true} };
+        if (!PinManager::allocateMultiplePins(i2cPins, 2, PinOwner::UM_Audioreactive)) {
+          DEBUGSR_PRINTF("AR: Failed to allocate ES8311 I2C pins: SDA=%d, SCL=%d\n", _sdaPin, _sclPin);
+          return false;
+        }
+        _i2cPinsAllocated = true;
+        Wire.begin(_sdaPin, _sclPin);
+      } else {
+        Wire.begin();
+      }
+      return true;
+    }
+
+    bool _es8311InitAdc() {
+      bool ok = true;
+
+      // Base init derived from Espressif's ES8311 driver, reduced to ADC capture.
+      ok &= _es8311I2cWrite(0x01, 0x30);
+      ok &= _es8311I2cWrite(0x02, 0x00);
+      ok &= _es8311I2cWrite(0x03, 0x10);
+      ok &= _es8311I2cWrite(0x16, 0x24);
+      ok &= _es8311I2cWrite(0x04, 0x10);
+      ok &= _es8311I2cWrite(0x05, 0x00);
+      ok &= _es8311I2cWrite(0x0B, 0x00);
+      ok &= _es8311I2cWrite(0x0C, 0x00);
+      ok &= _es8311I2cWrite(0x10, 0x1F);
+      ok &= _es8311I2cWrite(0x11, 0x7F);
+      ok &= _es8311I2cWrite(0x00, 0x80); // slave mode, codec state machine on
+      ok &= _es8311I2cWrite(0x01, 0x3F); // use MCLK pin as clock source
+
+      // SAMPLE_RATE is 22050 Hz in AudioReactive. With 256Fs MCLK this is 5.6448 MHz.
+      ok &= _es8311I2cWrite(0x02, 0x00);
+      ok &= _es8311I2cWrite(0x05, 0x00);
+      ok &= _es8311I2cWrite(0x03, 0x10);
+      ok &= _es8311I2cWrite(0x04, 0x10);
+      ok &= _es8311I2cWrite(0x07, 0x00);
+      ok &= _es8311I2cWrite(0x08, 0xFF);
+      ok &= _es8311I2cWrite(0x06, 0x03);
+
+      ok &= _es8311I2cWrite(0x13, 0x10);
+      ok &= _es8311I2cWrite(0x1B, 0x0A);
+      ok &= _es8311I2cWrite(0x1C, 0x6A);
+      ok &= _es8311I2cWrite(0x44, 0x08);
+
+      // 32-bit I2S samples, normal I2S format, ADC output enabled.
+      ok &= _es8311I2cWrite(0x0A, 0x10);
+      ok &= _es8311I2cWrite(0x32, 0xBF);
+      ok &= _es8311I2cWrite(0x17, 0xBF);
+      ok &= _es8311I2cWrite(0x0E, 0x02);
+      ok &= _es8311I2cWrite(0x12, 0x00);
+      ok &= _es8311I2cWrite(0x14, 0x1A); // analog mic input, PGA gain enabled
+      ok &= _es8311I2cWrite(0x0D, 0x01);
+      ok &= _es8311I2cWrite(0x15, 0x40);
+      ok &= _es8311I2cWrite(0x37, 0x48);
+      ok &= _es8311I2cWrite(0x45, 0x00);
+
+      return ok;
+    }
+
+  public:
+    ES8311Source(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f) :
+      I2SSource(sampleRate, blockSize, sampleScale) {
+      _config.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
+    };
+
+    void initialize(int8_t i2swsPin, int8_t i2ssdPin, int8_t i2sckPin, int8_t mclkPin) {
+      DEBUGSR_PRINTLN(F("ES8311Source:: initialize();"));
+      if ((i2sckPin < 0) || (mclkPin < 0)) {
+        DEBUGSR_PRINTF("\nAR: invalid I2S pin: SCK=%d, MCLK=%d\n", i2sckPin, mclkPin);
+        return;
+      }
+
+      I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+      if (!isInitialized()) return;
+
+      if (!_setupI2C() || !_es8311InitAdc()) {
+        deinitialize();
+        return;
+      }
+    }
+
+    void deinitialize() {
+      I2SSource::deinitialize();
+      if (_i2cPinsAllocated) {
+        PinManager::deallocatePin(_sdaPin, PinOwner::UM_Audioreactive);
+        PinManager::deallocatePin(_sclPin, PinOwner::UM_Audioreactive);
+        _i2cPinsAllocated = false;
+      }
+    }
+};
+
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32C61) && !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32P4)
 // ADC over I2S is only availeable in "classic" ESP32
 
