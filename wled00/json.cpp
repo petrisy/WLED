@@ -520,9 +520,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     if (root["win"].isNull() && getVal(root["ps"], presetCycCurr, 1, 250) && presetCycCurr > 0 && presetCycCurr < 251 && presetCycCurr != currentPreset) {
       DEBUG_PRINTF_P(PSTR("Preset select: %d\n"), presetCycCurr);
       // b) preset ID only or preset that does not change state (use embedded cycling limits if they exist in getVal())
-      // async load from file system (only preset ID was specified)
-      // avoid propogating CALL_MODE_INIT, which may cause accidental recursion
-      applyPreset(presetCycCurr, callMode == CALL_MODE_INIT ? CALL_MODE_DIRECT_CHANGE : callMode);
+      applyPreset(presetCycCurr, callMode); // async load from file system (only preset ID was specified)
       return stateResponse;
     } else presetCycCurr = currentPreset; // restore presetCycCurr
   }
@@ -699,7 +697,14 @@ void serializeInfo(JsonObject root)
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
   root[F("repo")] = repoString;
+#if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)) // ToDO: verify that this works correctly in V5
   root[F("deviceId")] = getDeviceId();
+#else
+  //#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+  // fake 38char fingerprint from bootloaderSHA1. WARNING: only for testing, not suitable for production!
+  //root[F("deviceId")] = String("0000") + getBootloaderSHA256Hex().substring(4, 34) + String("0000");
+  //#endif
+#endif
 
   JsonObject leds = root.createNestedObject(F("leds"));
   leds[F("count")] = strip.getLengthTotal();
@@ -768,7 +773,7 @@ void serializeInfo(JsonObject root)
 
   root[F("lip")] = realtimeIP[0] == 0 ? "" : realtimeIP.toString();
 
-  #ifdef WLED_ENABLE_WEBSOCKETS
+  #if defined(WLED_ENABLE_WEBSOCKETS) && !defined(WLED_ETHERNET_ONLY_BUILD)
   root[F("ws")] = ws.count();
   #else
   root[F("ws")] = -1;
@@ -776,18 +781,8 @@ void serializeInfo(JsonObject root)
 
   root[F("fxcount")] = strip.getModeCount();
   root[F("palcount")] = getPaletteCount();
-  root[F("cpalcount")] = customPalettes.size();   // number of user custom palettes (includes gray placeholders)
-  root[F("umpalcount")] = usermodPalettes.size(); // number of usermod-registered palettes
+  root[F("cpalcount")] = customPalettes.size();   // number of custom palettes
   root[F("cpalmax")] = WLED_MAX_CUSTOM_PALETTES;  // maximum number of custom palettes
-  // send usermod palette names so the UI can label them correctly
-  if (usermodPalettes.size() > 0) {
-    JsonArray umpalnames = root.createNestedArray(F("umpalnames"));
-    for (size_t j = 0; j < usermodPalettes.size(); j++) {
-      char buf[34];
-      extractModeName(WLED_USERMOD_PALETTE_ID_BASE - j, JSON_palette_names, buf, sizeof(buf) - 1);
-      umpalnames.add(buf);
-    }
-  }
 
   JsonArray ledmaps = root.createNestedArray(F("maps"));
   for (size_t i=0; i<WLED_MAX_LEDMAPS; i++) {
@@ -805,7 +800,18 @@ void serializeInfo(JsonObject root)
   int qrssi = WiFi.RSSI();
   wifi_info[F("rssi")] = qrssi;
   wifi_info[F("signal")] = getSignalQuality(qrssi);
-  wifi_info[F("channel")] = WiFi.channel();
+  int wifiChannel = WiFi.channel();
+  wifi_info[F("channel")] = wifiChannel;
+  if ((wifiChannel > 0) && (unsigned(WiFi.status()) < unsigned(WL_CONNECT_FAILED))) { // Wifi Status > 3 are error statuses (disconnected, stopped, signal lost)
+    #if defined(ARDUINO_ARCH_ESP32) && SOC_WIFI_SUPPORT_5G
+      auto wifiBand = WiFi.getBand();
+      wifi_info[F("band")] = wifiBand == WIFI_BAND_2G ? F("2.4GHz") : (wifiBand == WIFI_BAND_5G ? F("5GHz"): F("(other)"));
+    #else
+      wifi_info[F("band")] = F("2.4GHz");
+    #endif
+  } else {
+    wifi_info[F("band")] = F("not connected");
+  }
   wifi_info[F("ap")] = apActive;
 
   JsonObject fs_info = root.createNestedObject("fs");
@@ -958,28 +964,19 @@ void serializePalettes(JsonObject root, int page)
   #endif
 
   const int customPalettesCount = customPalettes.size();
-  const int umPalettesCount     = usermodPalettes.size();
   const int palettesCount = FIXED_PALETTE_COUNT; // palettesCount is number of palettes, not palette index
 
-  const int maxPage = (palettesCount + umPalettesCount + customPalettesCount) / itemPerPage;
+  const int maxPage = (palettesCount + customPalettesCount) / itemPerPage;
   if (page > maxPage) page = maxPage;
 
   const int start = itemPerPage * page;
-  int end = min(start + itemPerPage, palettesCount + umPalettesCount + customPalettesCount);
+  int end = min(start + itemPerPage, palettesCount + customPalettesCount);
 
   root[F("m")] = maxPage; // inform caller how many pages there are
   JsonObject palettes  = root.createNestedObject("p");
 
   for (int i = start; i < end; i++) {
-    // compute the palette ID for this sequential index
-    int paletteId;
-    if (i >= palettesCount + umPalettesCount) // user custom palette (IDs 200, 199, ...)
-      paletteId = WLED_CUSTOM_PALETTE_ID_BASE - (i - palettesCount - umPalettesCount);
-    else if (i >= palettesCount)              // usermod palette (IDs 255, 254, ...)
-      paletteId = WLED_USERMOD_PALETTE_ID_BASE - (i - palettesCount);
-    else
-      paletteId = i;                          // fixed palette
-    JsonArray curPalette = palettes.createNestedArray(String(paletteId));
+    JsonArray curPalette = palettes.createNestedArray(String(i >= palettesCount ? 255 - i + palettesCount : i));
     switch (i) {
       case 0: //default palette
         setPaletteColors(curPalette, PartyColors_gc22);
@@ -1008,13 +1005,9 @@ void serializePalettes(JsonObject root, int page)
         curPalette.add("c1");
         break;
       default:
-        if (i >= palettesCount + umPalettesCount) { // user custom palettes (lowest IDs in the custom range)
-          int custIdx = i - palettesCount - umPalettesCount;
-          setPaletteColors(curPalette, customPalettes[custIdx]);
-        } else if (i >= palettesCount) { // usermod palettes (IDs 255, 254, ...)
-          int umIdx = i - palettesCount;
-          setPaletteColors(curPalette, usermodPalettes[umIdx].palette);
-        } else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
+        if (i >= palettesCount) // custom palettes
+          setPaletteColors(curPalette, customPalettes[i - palettesCount]);
+        else if (i < int(DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)) // palette 6 - 12, fastled palettes
           setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
           memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), sizeof(tcp));
@@ -1032,6 +1025,9 @@ void serializeNetworks(JsonObject root)
 
   switch (status) {
     case WIFI_SCAN_FAILED:
+      #if defined(SOC_WIFI_SUPPORT_5G) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
+      if (!WiFi.setBandMode(wifi_band_mode_t(wifiBandMode))) { DEBUG_PRINTLN(F("serializeNetworks(): WiFi band configuration failed!")); }
+      #endif
       WiFi.scanNetworks(true);
       return;
     case WIFI_SCAN_RUNNING:
@@ -1116,6 +1112,21 @@ void serializePins(JsonObject root)
     #elif defined(CONFIG_IDF_TARGET_ESP32) // ESP32 classic
     if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
     if (gpio == 2 || gpio == 12) caps |= PIN_CAP_BOOTSTRAP; // note: if GPIO12 must be low at boot, (high=1.8V flash mode), GPIO 2 must be low or floating to enter bootloader mode
+    #elif defined(CONFIG_IDF_TARGET_ESP32C5)
+    if (gpio == 28) caps |= PIN_CAP_BOOT;  // pull low to enter bootloader mode
+    if (gpio == 27) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO28 is low for download mode
+    if (gpio == 2 || gpio == 3 || gpio == 7 || gpio == 25 || gpio == 26) caps |= PIN_CAP_BOOTSTRAP; // additional C5 strapping pins per Espressif boot configuration docs
+    #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+    if (gpio == 9) caps |= PIN_CAP_BOOT;   // pull low to enter bootloader mode
+    if (gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO9 is low for download mode
+    if (gpio == 4 || gpio == 5 || gpio == 15) caps |= PIN_CAP_BOOTSTRAP; // additional C6 strapping pins per Espressif strapping-pin docs
+    #elif defined(CONFIG_IDF_TARGET_ESP32C61)
+    if (gpio == 9) caps |= PIN_CAP_BOOT;   // pull low to enter bootloader mode
+    if (gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO9 is low for download mode
+    if (gpio == 7 || gpio == 3 || gpio == 4) caps |= PIN_CAP_BOOTSTRAP; //  GPIO7, MTMS, and MTDI are also strapping pins
+    #elif defined(CONFIG_IDF_TARGET_ESP32P4)
+    if (gpio == 35) caps |= PIN_CAP_BOOT;  // pull low to enter bootloader mode
+    if (gpio == 36) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO35 is low for download mode    
     #endif
     #else
     // ESP8266: GPIO 0-16 + GPIO17=A0
