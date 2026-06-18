@@ -3,10 +3,16 @@
 #else // ESP32
   #include <WiFi.h>
   #include <ETH.h>
+  #include <memory>
 #endif
 
 #ifndef Network_h
 #define Network_h
+
+#ifdef ARDUINO_ARCH_ESP32
+class AsyncDNS;
+extern std::shared_ptr<AsyncDNS> DNSlookup;
+#endif
 
 class WLEDNetworkClass
 {
