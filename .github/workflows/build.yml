@@ -27,7 +27,9 @@ jobs:
         python-version: '3.12'
         cache: 'pip'
     - name: Install PlatformIO
-      run: pip install -r requirements.txt
+      run: |
+        pip install -r requirements.txt
+        pip install --upgrade platformio
     - name: Get default environments
       id: envs
       run: |
@@ -73,7 +75,9 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
     - name: Install PlatformIO
-      run: pip install -r requirements.txt
+      run: |
+        pip install -r requirements.txt
+        pip install --upgrade platformio
 
     - name: Build firmware
       run: pio run -e ${{ matrix.environment }}
