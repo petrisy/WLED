@@ -224,7 +224,7 @@ private:
   void serveDescription()
   {
     EA_DEBUGLN("# Responding to description.xml ... #\n");
-    IPAddress localIP = WLEDNetwork.localIP();
+    IPAddress localIP = Network.localIP();
     char s[16];
     snprintf(s, sizeof(s), "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
     char buf[1024];
@@ -298,7 +298,7 @@ private:
   //respond to UDP SSDP M-SEARCH
   void respondToSearch()
   {
-    IPAddress localIP = WLEDNetwork.localIP();
+    IPAddress localIP = Network.localIP();
     char s[16];
     sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
 

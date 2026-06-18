@@ -763,8 +763,9 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
 
 #ifdef ARDUINO_ARCH_ESP32
 void BusNetwork::resolveHostname() {
-  static std::shared_ptr<AsyncDNS> DNSlookup; // TODO: make this dynamic? requires to handle the callback properly
-  if (WLEDNetwork.isConnected()) {
+  static unsigned long nextResolve = 0;
+  if (Network.isConnected() && millis() > nextResolve && _hostname.length() > 0) {
+    nextResolve = millis() + 600000; // resolve only every 10 minutes
     IPAddress clnt;
     if (strlen(cmDNS) > 0) {
       clnt = MDNS.queryHost(_hostname);

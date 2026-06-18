@@ -8,7 +8,7 @@
 #ifndef Network_h
 #define Network_h
 
-class WLEDNetworkClass
+class NetworkClass
 {
 public:
   IPAddress localIP();
@@ -19,6 +19,6 @@ public:
   bool isEthernet();
 };
 
-extern WLEDNetworkClass WLEDNetwork;
+extern NetworkClass Network;
 
 #endif
