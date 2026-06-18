@@ -1,5 +1,9 @@
 #include "Network.h"
 
+#ifdef ARDUINO_ARCH_ESP32
+std::shared_ptr<AsyncDNS> DNSlookup;
+#endif
+
 IPAddress WLEDNetworkClass::localIP()
 {
   IPAddress localIP;
