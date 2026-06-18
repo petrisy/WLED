@@ -28,7 +28,8 @@ jobs:
         cache: 'pip'
     - name: Install PlatformIO
       run: |
-        pip install -r requirements.txt
+        grep -v '^platformio' requirements.txt > /tmp/wled_requirements.txt
+        pip install -r /tmp/wled_requirements.txt
         pip install --upgrade platformio
     - name: Get default environments
       id: envs
@@ -76,7 +77,8 @@ jobs:
           cache: 'pip'
     - name: Install PlatformIO
       run: |
-        pip install -r requirements.txt
+        grep -v '^platformio' requirements.txt > /tmp/wled_requirements.txt
+        pip install -r /tmp/wled_requirements.txt
         pip install --upgrade platformio
 
     - name: Build firmware
