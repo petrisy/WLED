@@ -82,7 +82,12 @@ jobs:
         pip install --upgrade platformio
 
     - name: Build firmware
-      run: pio run -e ${{ matrix.environment }}
+      run: |
+        pio run -e ${{ matrix.environment }} > pio-build.log 2>&1 || {
+          tail -n 200 pio-build.log
+          exit 1
+        }
+        tail -n 40 pio-build.log
     - name: Get artifact name from bin filename
       id: artifact_name
       run: |
