@@ -7,7 +7,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2605011
+#define VERSION 2603281
 
 //uncomment this if you have a "my_config.h" file you'd like to use
 //#define WLED_USE_MY_CONFIG
@@ -75,6 +75,18 @@
 
 // Library inclusions.
 #include <Arduino.h>
+
+// buildenv sanity check
+#if !defined(ESP32) && !defined(ESP8266)
+#error neither ESP32 nor ESP8266 defined. Please fix your build environment.
+#endif
+#if defined(ESP8266) && (defined(ARDUINO_ARCH_ESP32) || defined(ESP32))
+#error both ESP8266 and ESP32/ARDUINO_ARCH_ESP32 defined. Please fix your build environment.
+#endif
+#if (defined(ARDUINO_ARCH_ESP32) && !defined(ESP32)) || (defined(ESP32) && !defined(ARDUINO_ARCH_ESP32))
+#error either ESP32 or ARDUINO_ARCH_ESP32 not defined. Please fix your build environment.
+#endif
+
 #ifdef ESP8266
   #include <ESP8266WiFi.h>
   #ifdef WLED_ENABLE_WPA_ENTERPRISE
@@ -124,6 +136,8 @@
   #include "my_config.h"
 #endif
 
+#include "wled_boards.h"  // pull in board-specific capability defines
+
 #include <ESPAsyncWebServer.h>
 #include <WiFiUdp.h>
 #include <DNSServer.h>
@@ -142,7 +156,9 @@
 #endif
 
 #ifdef WLED_ENABLE_DMX
- #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+ #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6)  || defined(CONFIG_IDF_TARGET_ESP32C61)  || defined(CONFIG_IDF_TARGET_ESP32P4) 
+  #error "DMX output is not supported on ESP32-C5/C6/P4 (esp_dmx library excluded)"
+ #elif defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3)|| defined(CONFIG_IDF_TARGET_ESP32S2)
   #include "src/dependencies/dmx/ESPDMX.h"
  #else //ESP32
   #include "src/dependencies/dmx/SparkFunDMX.h"
@@ -274,7 +290,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #define STRINGIFY(X) #X
 #define TOSTRING(X) STRINGIFY(X)
 
-#define WLED_CODENAME "Kagayaki"
+#define WLED_CODENAME "Niji"
 
 // AP and OTA default passwords (for maximum security change them!)
 WLED_GLOBAL char apPass[65]  _INIT(WLED_AP_PASS);
@@ -315,7 +331,9 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
   #define IRTYPE 0
 #endif
 
-#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || (defined(RX) && defined(TX))
+// RX and TX: use "default" pins for 8266 and classic esp32
+// except when arduino-esp32 has explicitly defined RX and TX (some arduino variants don't define RX and TX)
+#if defined(ARDUINO_ARCH_ESP32) && (!defined(CONFIG_IDF_TARGET_ESP32) || (defined(RX) && defined(TX)))
   // use RX/TX as set by the framework - these boards do _not_ have RX=3 and TX=1
   constexpr uint8_t hardwareRX = RX;
   constexpr uint8_t hardwareTX = TX;
@@ -375,14 +393,25 @@ WLED_GLOBAL bool noWifiSleep _INIT(false);
   #endif
 WLED_GLOBAL bool force802_3g _INIT(false);
 #endif // WLED_SAVE_RAM
-#ifdef ARDUINO_ARCH_ESP32
-  #if defined(LOLIN_WIFI_FIX) && (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
+#ifdef SOC_WIFI_SUPPORT_5G
+#if defined(CONFIG_IDF_TARGET_ESP32C5)
+WLED_GLOBAL byte wifiBandMode _INIT((byte)WIFI_BAND_MODE_2G_ONLY); // C5 5GHz/auto is still experimental; prefer the common WLED 2.4GHz path by default
+#else
+WLED_GLOBAL byte wifiBandMode _INIT((byte)WIFI_BAND_MODE_AUTO);  // default for dual-band chips (1=2.4G, 2=5G, 3=Auto)
+#endif
+#endif
+#if defined(ARDUINO_ARCH_ESP32)
+  #if defined(LOLIN_WIFI_FIX) // extend this fix to all esp32 boards
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_8_5dBm);
   #else
-WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);
+WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);  // ToDO: change to int8_t; V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4. Also check if the UI can handle it.
   #endif
 #endif
 #define WLED_WIFI_CONFIGURED isWiFiConfigured()
+
+#if defined(WLED_USE_ETHERNET) && defined(WLED_ETHERNET_ONLY)
+  #define WLED_ETHERNET_ONLY_BUILD
+#endif
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   #ifdef WLED_ETH_DEFAULT                                          // default ethernet board type if specified
@@ -454,7 +483,9 @@ WLED_GLOBAL bool arlsDisableGammaCorrection _INIT(true);          // activate if
 WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to force max brightness if source has very dark colors that would be black
 
 #ifdef WLED_ENABLE_DMX
- #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+ #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4) 
+  #error "DMX output is not supported on ESP32-C5/C6/P4 (esp_dmx library excluded)"
+ #elif defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
   WLED_GLOBAL DMXESPSerial dmx;
  #else //ESP32
   WLED_GLOBAL SparkFunDMX dmx;
@@ -469,9 +500,9 @@ WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to f
   WLED_GLOBAL uint16_t DMXStartLED _INIT(0);      // LED from which DMX fixtures start
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
-  WLED_GLOBAL int dmxInputTransmitPin _INIT(-1);
-  WLED_GLOBAL int dmxInputReceivePin _INIT(-1);
-  WLED_GLOBAL int dmxInputEnablePin _INIT(-1);
+  WLED_GLOBAL int dmxInputTransmitPin _INIT(0);
+  WLED_GLOBAL int dmxInputReceivePin _INIT(0);
+  WLED_GLOBAL int dmxInputEnablePin _INIT(0);
   WLED_GLOBAL int dmxInputPort _INIT(2);
   WLED_GLOBAL DMXInput dmxInput;
 #endif
@@ -599,8 +630,7 @@ WLED_GLOBAL bool wasConnected _INIT(false);
 
 // color
 WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
-WLED_GLOBAL std::vector<CRGBPalette16> customPalettes;  // custom palettes (file-based, IDs grow downwards starting at 200)
-WLED_GLOBAL std::vector<UsermodPalette> usermodPalettes; // usermod-registered palettes (IDs 255, 254, 253...)
+WLED_GLOBAL std::vector<CRGBPalette16> customPalettes;  // custom palettes
 WLED_GLOBAL uint8_t paletteBlend _INIT(0);        // determines blending and wrapping of palette: 0: blend, wrap if moving (SEGMENT.speed>0); 1: blend, always wrap; 2: blend, never wrap; 3: don't blend or wrap
 
 // transitions
