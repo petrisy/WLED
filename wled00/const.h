@@ -10,6 +10,9 @@ constexpr size_t FASTLED_PALETTE_COUNT = 7;   //  6-12 = sizeof(fastledPalettes)
 constexpr size_t GRADIENT_PALETTE_COUNT = 59; // 13-72 = sizeof(gGradientPalettes) / sizeof(gGradientPalettes[0]);
 constexpr size_t DYNAMIC_PALETTE_COUNT = 6;   //  0- 5 = dynamic palettes (0=default(virtual),1=random,2=primary,3=primary+secondary,4=primary+secondary+tertiary,5=primary+secondary(+tertiary if not black)
 constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT + GRADIENT_PALETTE_COUNT; // total number of fixed palettes
+constexpr uint8_t WLED_CUSTOM_PALETTE_ID_BASE = 200;  // custom palettes count down from ID 200
+constexpr uint8_t WLED_USERMOD_PALETTE_ID_BASE = 255; // usermod palettes count down from ID 255
+constexpr uint8_t WLED_MAX_USERMOD_PALETTES = WLED_USERMOD_PALETTE_ID_BASE - WLED_CUSTOM_PALETTE_ID_BASE;
 #ifndef ESP8266
   #define WLED_MAX_CUSTOM_PALETTES (255 - FIXED_PALETTE_COUNT) // allow up to 255 total palettes, user is warned about stability issues when adding more than 10
 #else

@@ -42,12 +42,12 @@ private:
   void updateInternal();
 
   // is invoked whenver the dmx start address is changed via rdm
-  friend void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
-                                  void *context);
+  friend void rdmAddressChangedCb(dmx_port_t dmxPort, rdm_header_t *requestHeader,
+                                  rdm_header_t *responseHeader, void *context);
 
   // is invoked whenever the personality is changed via rdm
-  friend void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
-                                      void *context);
+  friend void rdmPersonalityChangedCb(dmx_port_t dmxPort, rdm_header_t *requestHeader,
+                                      rdm_header_t *responseHeader, void *context);
 
   /// The internal dmx task.
   /// This is the main loop of the dmx receiver. It never returns.

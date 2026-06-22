@@ -174,25 +174,25 @@ void setOTAReplied(AsyncWebServerRequest *request) {
   context->replySent = true;
 };
 
-// Returns pointer to error message, or nullptr if OTA was successful.
-std::pair<bool, String> getOTAResult(AsyncWebServerRequest* request) {
+// Returns OTA result state and an error message if OTA failed.
+std::pair<OTAResultStatus, String> getOTAResult(AsyncWebServerRequest* request) {
   UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
-  if (!context) return { true, F("OTA context unexpectedly missing") };
-  if (context->replySent) return { false, {} };
-  if (context->errorMessage.length()) return { true, context->errorMessage };
+  if (!context) return { OTAResultStatus::Ready, F("OTA context unexpectedly missing") };
+  if (context->replySent) return { OTAResultStatus::Replied, {} };
+  if (context->errorMessage.length()) return { OTAResultStatus::Ready, context->errorMessage };
 
   if (context->updateStarted) {
     // Release the OTA context now.
     endOTA(request);
     if (Update.hasError()) {
-      return { true, Update.UPDATE_ERROR() };
+      return { OTAResultStatus::Ready, Update.UPDATE_ERROR() };
     } else {
-      return { true, {} };
+      return { OTAResultStatus::Ready, {} };
     }
   }
 
   // Should never happen
-  return { true, F("Internal software failure") };
+  return { OTAResultStatus::Ready, F("Internal software failure") };
 }
 
 
